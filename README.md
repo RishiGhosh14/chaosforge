@@ -4,7 +4,7 @@
 
 ChaosForge automatically discovers, mutates, minimizes, and evaluates environmental failures that can cause autonomous AI agents to behave incorrectly or unsafely.
 
-The repository contains the Phase 0 design plus the first Phase 1 reference-agent slice: deterministic, in-memory mock customer/payment/notification services and two support-agent versions. It does not yet contain a production API, database, SDK, Docker sandbox, or generated performance metrics.
+The repository contains the Phase 0 design and a working development foundation: a versioned FastAPI control plane, durable SQLAlchemy persistence, a dependency-free Python SDK, Docker Compose with PostgreSQL, and deterministic reference agents. The only executable target is still the allowlisted reference sandbox; external-agent execution, campaign orchestration, migrations, RBAC, and production deployment hardening remain planned work.
 
 ## Run the reference agent
 
@@ -29,7 +29,46 @@ python -m uvicorn apps.api.main:app --reload --port 8000
 Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Select an agent version
 and sandbox scenario, then choose **Run isolated experiment**. The UI calls the
 local API and shows the actual returned decision and structured event timeline.
-Runs are retained only for the lifetime of the local server.
+The default local SQLite database retains runs across server restarts.
+
+## Durable local API and database
+
+The API uses SQLite (`chaosforge.db`) by default, preserving experiments across
+restarts. Set `CHAOSFORGE_API_KEY` before starting the API to require an
+`X-API-Key` header on every `/api/v1` endpoint.
+
+OpenAPI is available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs).
+
+Useful endpoints include:
+
+- `GET /healthz`
+- `GET /api/v1/agents`
+- `POST /api/v1/experiments`
+- `GET /api/v1/experiments`
+- `GET /api/v1/failures`
+- `GET /api/v1/agents/support-agent/resilience`
+
+## Run the Docker development stack
+
+Copy `.env.example` to `.env`, set a local PostgreSQL password, then run:
+
+```powershell
+docker compose up --build
+```
+
+The API runs as a non-root container with dropped Linux capabilities and a
+read-only filesystem. It connects to the private Compose PostgreSQL network;
+the reference agent remains an allowlisted in-process sandbox until a separate
+runtime worker is implemented.
+
+## Python SDK
+
+The SDK source is in `packages/sdk`. For source-checkout use:
+
+```powershell
+$env:PYTHONPATH = "packages/sdk"
+python -c "from chaosforge import ChaosForgeClient; print(ChaosForgeClient().list_agents())"
+```
 
 ## Design package
 
